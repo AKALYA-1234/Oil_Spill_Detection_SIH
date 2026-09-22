@@ -1,297 +1,337 @@
 import { useState } from 'react'
-import { Play } from 'lucide-react'
-import MapView from '../components/MapView'
+import {
+  Ship, AlertTriangle, Wifi, Eye, TrendingUp, Calendar,
+  Play, ChevronRight, Clock
+} from 'lucide-react'
 
-const candidates = [
-  {
-    id: 1,
-    name: 'MV OCEAN STAR',
-    imo: '9482718',
-    type: 'CRUDE OIL TANKER',
-    priority: 87,
-    tag: 'HIGH PROXIMITY',
-    sog: '11.4 kts',
-    cog: '042°',
-    interceptTime: '03:52 UTC',
-    flag: 'PANAMA (PA)',
-    distance: '1.8 km',
-    timeAlign: 'High (±8 min)',
-    trajMatch: 'Very High (94.2%)',
-    anomaly: 'Detected (Speed Drop)',
-    aisGap: 'Present (40m Silence)'
-  },
-  {
-    id: 2,
-    name: 'MV BLUE WAVE',
-    imo: '9318842',
-    type: 'BULK CARRIER',
-    priority: 64,
-    tag: 'PARALLEL TRACK',
-    sog: '12.4 kts',
-    cog: '038°',
-    interceptTime: '04:18 UTC',
-    flag: 'LIBERIA (LR)',
-    distance: '5.2 km',
-    timeAlign: 'Moderate (±22 min)',
-    trajMatch: 'Medium (68.1%)',
-    anomaly: 'None',
-    aisGap: 'Continuous'
-  },
-  {
-    id: 3,
-    name: 'MV SEA PEARL',
-    imo: '9152284',
-    type: 'CONTAINER SHIP',
-    priority: 42,
-    tag: 'PERIPHERAL',
-    sog: '18.1 kts',
-    cog: '074°',
-    interceptTime: '04:45 UTC',
-    flag: 'MARSHALL IS.',
-    distance: '12.4 km',
-    timeAlign: 'Low (±45 min)',
-    trajMatch: 'Low (31.4%)',
-    anomaly: 'None',
-    aisGap: 'Continuous'
-  },
+const vesselTabs = ['Map View', 'Tracks', 'Anomalies', 'AIS Gaps', 'Density', 'Playback']
+
+interface Vessel {
+  rank: number
+  name: string
+  imo: string
+  type: string
+  closestDist: string
+  timeMatch: string
+  behaviorScore: number
+  overallScore: number
+  flag: string
+  mmsi: string
+  lastPosition: string
+  speed: string
+  course: string
+  lastSignal: string
+  status: 'SUSPICIOUS' | 'CLEARED' | 'UNKNOWN'
+}
+
+const vessels: Vessel[] = [
+  { rank: 1, name: 'MV OCEAN STAR', imo: '9482718', type: 'Crude Oil Tanker', closestDist: '12.4 km', timeMatch: '92%', behaviorScore: 0.87, overallScore: 87, flag: 'Marshall Islands', mmsi: '563210060', lastPosition: '13.248° N, 80.612° E', speed: '3.1 knots', course: '68° (ENE)', lastSignal: '2025-06-02 03:48 UTC', status: 'SUSPICIOUS' },
+  { rank: 2, name: 'MV BLUE WAVE', imo: '8513842', type: 'Bulk Carrier', closestDist: '28.7 km', timeMatch: '74%', behaviorScore: 0.64, overallScore: 64, flag: 'Panama', mmsi: '371200015', lastPosition: '13.189° N, 80.450° E', speed: '8.4 knots', course: '120° (SE)', lastSignal: '2025-06-02 04:12 UTC', status: 'CLEARED' },
+  { rank: 3, name: 'MV SEA PEARL', imo: '9153204', type: 'Container Ship', closestDist: '46.1 km', timeMatch: '58%', behaviorScore: 0.42, overallScore: 42, flag: 'Singapore', mmsi: '563041290', lastPosition: '13.120° N, 80.380° E', speed: '12.6 knots', course: '205° (SW)', lastSignal: '2025-06-02 04:30 UTC', status: 'CLEARED' },
+  { rank: 4, name: 'MV HORIZON', imo: '9722103', type: 'Cargo Vessel', closestDist: '62.3 km', timeMatch: '31%', behaviorScore: 0.28, overallScore: 28, flag: 'Liberia', mmsi: '636016789', lastPosition: '13.065° N, 80.290° E', speed: '9.8 knots', course: '340° (NW)', lastSignal: '2025-06-02 05:15 UTC', status: 'CLEARED' },
+  { rank: 5, name: 'MV EASTERN', imo: '9256714', type: 'Chemical Tanker', closestDist: '88.9 km', timeMatch: '24%', behaviorScore: 0.21, overallScore: 21, flag: 'Hong Kong', mmsi: '477821340', lastPosition: '12.950° N, 80.200° E', speed: '11.2 knots', course: '175° (S)', lastSignal: '2025-06-02 05:42 UTC', status: 'CLEARED' },
 ]
 
 export default function AISInvestigation() {
-  const [selectedCandidate, setSelectedCandidate] = useState(candidates[0])
-  const [isPlaying, setIsPlaying] = useState(false)
-  const [timelineVal, setTimelineVal] = useState(40)
+  const [activeTab, setActiveTab] = useState<string>('Map View')
+  const [selectedVessel, setSelectedVessel] = useState<number>(0)
+  const [vesselDetailTab, setVesselDetailTab] = useState<string>('Overview')
+
+  const vessel = vessels[selectedVessel]
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-      {/* Header bar */}
-      <div style={{
-        padding: '10px 16px', background: 'var(--bg-card)',
-        borderBottom: '1px solid var(--border-primary)',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        flexShrink: 0
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <div>
-            <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'JetBrains Mono', letterSpacing: '0.1em' }}>INVESTIGATION TARGET</span>
-            <h2 style={{ fontSize: 15, fontWeight: 700, color: 'var(--accent-cyan)', fontFamily: 'JetBrains Mono' }}>
-              INCIDENT #SLK-2024-884A
-            </h2>
+    <div style={{
+      padding: '16px 20px',
+      display: 'flex', flexDirection: 'column',
+      gap: '14px', height: '100%', overflowY: 'auto',
+      background: 'var(--bg-primary)'
+    }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+        <div>
+          <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'JetBrains Mono', marginBottom: 2 }}>
+            Home &gt; <span style={{ color: 'var(--accent-cyan)' }}>AIS Investigation</span>
           </div>
-          <span className="tag-cyan" style={{ fontSize: 9 }}>SYNTHETIC APERTURE CORRELATION ACTIVE</span>
+          <h1 style={{ fontSize: 22, fontWeight: 800, color: '#fff', margin: 0 }}>AIS Investigation</h1>
+          <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
+            Analyze vessel activities, correlate with satellite detections and identify potential responsible vessels.
+          </p>
         </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', fontSize: 10, fontFamily: 'JetBrains Mono' }}>
-          <div><span style={{ color: 'var(--text-muted)' }}>WINDOW:</span> <span style={{ color: 'var(--text-primary)' }}>03:38 – 05:00 UTC</span></div>
-          <div><span style={{ color: 'var(--text-muted)' }}>ORIGIN:</span> <span style={{ color: 'var(--text-primary)' }}>13.164° N, 80.287° E</span></div>
-          <div><span style={{ color: 'var(--text-muted)' }}>EST. SLICK DRIFT:</span> <span style={{ color: 'var(--accent-amber)' }}>8.82 kts @ 048°</span></div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            background: 'var(--bg-card)', border: '1px solid var(--border-primary)',
+            borderRadius: 4, padding: '6px 12px', fontSize: 10, fontFamily: 'JetBrains Mono', color: 'var(--text-secondary)'
+          }}>
+            <Calendar size={13} color="var(--text-muted)" />
+            2025-06-01 00:00 → 2025-06-03 23:59
+          </div>
+          <button className="btn-primary" style={{ padding: '7px 14px' }}>
+            <Play size={13} fill="#000" />
+            Run Analysis
+          </button>
         </div>
       </div>
 
-      {/* Main Grid */}
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        {/* Center Map & Timeline */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }}>
-          {/* Map view */}
-          <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
-            <MapView
-              center={[13.182, 80.314]}
-              zoom={12}
-              showSpill
-              showVessels
-              showDriftTrail
-            />
-
-            {/* Spatial Reticle Overlay */}
-            <div style={{
-              position: 'absolute', top: 12, left: 12, zIndex: 1000,
-              background: 'rgba(2, 11, 24, 0.85)', backdropFilter: 'blur(6px)',
-              border: '1px solid var(--border-primary)', padding: '8px 12px', borderRadius: 3,
-              fontFamily: 'JetBrains Mono', fontSize: 10, color: 'var(--text-secondary)'
-            }}>
-              <div style={{ color: 'var(--accent-cyan)', fontWeight: 700 }}>SPATIAL RETICLE ACTIVE <span style={{ color: 'var(--text-muted)' }}>ZOOM: 1:25,000</span></div>
-              <div>LAT: 13°09'50.4"N [13.164°]</div>
-              <div>LON: 80°17'13.2"E [80.287°]</div>
-              <div style={{ color: 'var(--text-muted)', marginTop: 2 }}>BATHYMETRY: -42.8m | CURRENTS: 0.8 kts NE</div>
+      {/* KPI Metrics Row */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10 }}>
+        {[
+          { icon: Ship, label: 'TOTAL VESSELS IN AOI', value: '142', sub: '+12% vs. previous window', color: '#fff' },
+          { icon: AlertTriangle, label: 'SUSPICIOUS VESSELS', value: '7', sub: 'Anomalous behavior', color: 'var(--accent-amber)' },
+          { icon: Eye, label: 'VESSELS NEAR SPILL', value: '23', sub: 'within 50 km', color: 'var(--accent-green)' },
+          { icon: Wifi, label: 'AIS GAPS DETECTED', value: '5', sub: 'in selected vessels', color: 'var(--accent-red)' },
+          { icon: TrendingUp, label: 'COVERAGE', value: '96.4%', sub: 'AIS data availability', color: 'var(--accent-green)' },
+        ].map((m, i) => (
+          <div key={i} className="glass-card" style={{ padding: '14px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <m.icon size={16} color={m.color} />
+              <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'JetBrains Mono', letterSpacing: '0.08em' }}>{m.label}</span>
             </div>
+            <div style={{ fontSize: 26, fontWeight: 800, color: m.color, fontFamily: 'JetBrains Mono' }}>{m.value}</div>
+            <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{m.sub}</div>
+          </div>
+        ))}
+      </div>
 
-            {/* Legend track indicator */}
-            <div style={{
-              position: 'absolute', top: 12, right: 12, zIndex: 1000,
-              background: 'rgba(2, 11, 24, 0.85)', backdropFilter: 'blur(6px)',
-              border: '1px solid var(--border-primary)', padding: '8px 12px', borderRadius: 3,
-              fontFamily: 'JetBrains Mono', fontSize: 9, display: 'flex', flexDirection: 'column', gap: 4
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ width: 12, height: 2, background: '#00ccff' }} />
-                <span>MV OCEAN STAR TRACK</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ width: 12, height: 2, background: '#ff3355', strokeDasharray: '2 2' }} />
-                <span>AIS SIGNAL GAP (40 MIN)</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ width: 6, height: 6, background: '#ffb700', borderRadius: '50%' }} />
-                <span>PROBABLE SPILL ORIGIN</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ width: 6, height: 6, background: '#00ff88', borderRadius: '50%' }} />
-                <span>OBSERVED SATELLITE SLICK</span>
-              </div>
-            </div>
+      {/* Tab Bar */}
+      <div style={{ display: 'flex', gap: 2, borderBottom: '2px solid var(--border-primary)' }}>
+        {vesselTabs.map(tab => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            style={{
+              padding: '8px 16px', fontSize: 11, fontFamily: 'JetBrains Mono',
+              fontWeight: activeTab === tab ? 700 : 500,
+              color: activeTab === tab ? 'var(--accent-cyan)' : 'var(--text-muted)',
+              background: activeTab === tab ? 'var(--accent-cyan-dim)' : 'transparent',
+              border: 'none', borderBottom: activeTab === tab ? '2px solid var(--accent-cyan)' : '2px solid transparent',
+              cursor: 'pointer', marginBottom: -2
+            }}
+          >
+            {tab}
+          </button>
+        ))}
+      </div>
+
+      {/* Main Content: Table + Vessel Details */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 12, minHeight: 380 }}>
+        {/* Left: Vessel Candidates Table */}
+        <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <div style={{
+            padding: '10px 14px', borderBottom: '1px solid var(--border-primary)',
+            background: 'var(--bg-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0
+          }}>
+            <span style={{ fontSize: 12, fontWeight: 700, fontFamily: 'JetBrains Mono', color: '#fff', letterSpacing: '0.04em' }}>
+              VESSEL CANDIDATES (RANKED BY PROBABILITY)
+            </span>
+            <button className="btn-ghost" style={{ padding: '3px 10px', fontSize: 9 }}>View All Vessels</button>
           </div>
 
-          {/* Timeline Bar at bottom of map */}
-          <div style={{
-            height: 50, background: 'var(--bg-secondary)',
-            borderTop: '1px solid var(--border-primary)',
-            padding: '8px 16px', display: 'flex', alignItems: 'center', gap: '16px',
-            flexShrink: 0
-          }}>
-            <button
-              className="btn-ghost"
-              onClick={() => setIsPlaying(!isPlaying)}
-              style={{ padding: '6px 10px' }}
-            >
-              <Play size={12} fill={isPlaying ? 'currentColor' : 'none'} />
-            </button>
+          <div style={{ flex: 1, overflow: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10, fontFamily: 'JetBrains Mono' }}>
+              <thead>
+                <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)', position: 'sticky', top: 0, zIndex: 10 }}>
+                  {['#', 'VESSEL NAME', 'IMO', 'TYPE', 'CLOSEST DISTANCE', 'TIME MATCH', 'BEHAVIOR SCORE', 'OVERALL SCORE', 'ACTIONS'].map(h => (
+                    <th key={h} style={{
+                      padding: '6px 8px', textAlign: 'left', fontSize: 8,
+                      color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.06em',
+                      background: 'var(--bg-secondary)'
+                    }}>
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {vessels.map((v, idx) => {
+                  const isSelected = idx === selectedVessel
+                  return (
+                    <tr
+                      key={idx}
+                      onClick={() => setSelectedVessel(idx)}
+                      style={{
+                        borderBottom: '1px solid var(--border-primary)',
+                        background: isSelected ? 'rgba(0, 204, 255, 0.08)' : 'transparent',
+                        cursor: 'pointer'
+                      }}
+                      onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.background = 'var(--bg-card-hover)' }}
+                      onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.background = isSelected ? 'rgba(0, 204, 255, 0.08)' : 'transparent' }}
+                    >
+                      <td style={{ padding: '8px', color: 'var(--text-muted)', fontWeight: 700 }}>{v.rank}</td>
+                      <td style={{ padding: '8px', color: isSelected ? 'var(--accent-cyan)' : '#fff', fontWeight: 700 }}>{v.name}</td>
+                      <td style={{ padding: '8px', color: 'var(--text-secondary)' }}>{v.imo}</td>
+                      <td style={{ padding: '8px', color: 'var(--text-secondary)' }}>{v.type}</td>
+                      <td style={{ padding: '8px', color: 'var(--accent-cyan)' }}>{v.closestDist}</td>
+                      <td style={{ padding: '8px', color: v.rank === 1 ? 'var(--accent-green)' : 'var(--text-secondary)' }}>{v.timeMatch}</td>
+                      <td style={{ padding: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <div style={{ width: 60, height: 5, background: 'var(--bg-primary)', borderRadius: 3, overflow: 'hidden' }}>
+                            <div style={{
+                              height: '100%', width: `${v.behaviorScore * 100}%`,
+                              background: v.behaviorScore >= 0.8 ? 'var(--accent-red)' : v.behaviorScore >= 0.5 ? 'var(--accent-amber)' : 'var(--accent-green)',
+                              transition: 'width 0.3s ease'
+                            }} />
+                          </div>
+                          <span style={{ color: 'var(--text-secondary)' }}>{v.behaviorScore}</span>
+                        </div>
+                      </td>
+                      <td style={{ padding: '8px' }}>
+                        <span style={{
+                          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                          width: 32, height: 20, borderRadius: 3, fontSize: 10, fontWeight: 800,
+                          background: v.overallScore >= 80 ? 'var(--accent-red)' : v.overallScore >= 50 ? 'var(--accent-amber)' : 'var(--accent-green)',
+                          color: '#000'
+                        }}>
+                          {v.overallScore}
+                        </span>
+                      </td>
+                      <td style={{ padding: '8px' }}>
+                        <button style={{
+                          background: 'transparent', border: '1px solid var(--border-primary)',
+                          color: 'var(--text-muted)', padding: '2px 4px', borderRadius: 2, cursor: 'pointer',
+                          display: 'flex', alignItems: 'center', gap: 2
+                        }}>
+                          <Eye size={11} /> <ChevronRight size={10} />
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
 
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, fontFamily: 'JetBrains Mono' }}>
-                <span style={{ color: 'var(--accent-cyan)', fontWeight: 700 }}>
-                  RECONSTRUCTION TIMELINE: 03:52 UTC — ANOMALY WINDOW
-                </span>
-                <span style={{ color: 'var(--text-muted)' }}>SPEED: 1x | 03:00 UTC / 06:00 UTC</span>
+          {/* AIS Playback Timeline */}
+          <div style={{
+            padding: '10px 14px', borderTop: '1px solid var(--border-primary)',
+            background: 'var(--bg-secondary)', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, color: 'var(--text-muted)', fontFamily: 'JetBrains Mono', whiteSpace: 'nowrap' }}>
+              <Clock size={12} /> AIS PLAYBACK TIMELINE
+              <span style={{ color: 'var(--accent-cyan)', fontWeight: 700 }}>2025-06-02 01:48:00 UTC</span>
+            </div>
+            <div style={{ flex: 1, position: 'relative' }}>
+              <div style={{ height: 6, background: 'var(--bg-primary)', borderRadius: 3, overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: '42%', background: 'linear-gradient(90deg, var(--accent-cyan), var(--accent-green))', borderRadius: 3 }} />
               </div>
-              <input
-                type="range"
-                min="0"
-                max="100"
-                value={timelineVal}
-                onChange={(e) => setTimelineVal(Number(e.target.value))}
-                style={{ width: '100%', accentColor: 'var(--accent-cyan)', cursor: 'pointer' }}
-              />
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 8, color: 'var(--text-muted)', fontFamily: 'JetBrains Mono' }}>
-                <span>03:00 T-Entry</span>
-                <span style={{ color: 'var(--accent-red)' }}>03:40–04:20 Intersect Window</span>
-                <span>04:30 AIS Resume</span>
-                <span>05:14 SAR Detection</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 8, color: 'var(--text-muted)', marginTop: 2, fontFamily: 'JetBrains Mono' }}>
+                <span>Jun 01 00:00</span>
+                <span>Jun 03 23:59</span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Right Panel: Funnel & Candidates */}
-        <div style={{
-          width: 360, flexShrink: 0,
-          borderLeft: '1px solid var(--border-primary)',
-          background: 'var(--bg-secondary)',
-          display: 'flex', flexDirection: 'column',
-          overflowY: 'auto'
-        }}>
-          {/* AIS Reconstruction Funnel */}
-          <div style={{ padding: '12px', borderBottom: '1px solid var(--border-primary)' }}>
-            <div style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'JetBrains Mono', letterSpacing: '0.1em', marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span>AIS RECONSTRUCTION FUNNEL</span>
-              <span style={{ color: 'var(--accent-cyan)' }}>PASS LATENCY 1.2h</span>
+        {/* Right: Selected Vessel Details */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {/* Vessel Card */}
+          <div className="glass-card" style={{ padding: '14px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+              <span style={{ fontSize: 11, fontWeight: 700, fontFamily: 'JetBrains Mono', color: '#fff' }}>
+                SELECTED VESSEL DETAILS
+              </span>
+              <span style={{
+                background: vessel.status === 'SUSPICIOUS' ? 'var(--accent-red)' : 'var(--accent-green)',
+                color: vessel.status === 'SUSPICIOUS' ? '#fff' : '#000',
+                padding: '2px 8px', borderRadius: 2, fontSize: 9, fontWeight: 700, fontFamily: 'JetBrains Mono'
+              }}>
+                {vessel.status}
+              </span>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 4, background: 'var(--bg-card)', padding: '6px', borderRadius: 4, border: '1px solid var(--border-primary)' }}>
-              <div className="funnel-stat">
-                <span className="funnel-num" style={{ fontSize: 15, color: 'var(--text-muted)' }}>2,481</span>
-                <span className="funnel-label">AIS REC</span>
+            {/* Vessel Info Block */}
+            <div style={{
+              display: 'flex', gap: 10, marginBottom: 12,
+              background: 'var(--bg-primary)', border: '1px solid var(--border-primary)',
+              borderRadius: 4, padding: '10px'
+            }}>
+              <div style={{
+                width: 60, height: 60, borderRadius: 4,
+                background: 'var(--bg-card)', border: '1px solid var(--border-primary)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center'
+              }}>
+                <Ship size={28} color="var(--accent-cyan)" />
               </div>
-              <div className="funnel-stat">
-                <span className="funnel-num" style={{ fontSize: 15, color: 'var(--text-secondary)' }}>184</span>
-                <span className="funnel-label">NEARBY</span>
-              </div>
-              <div className="funnel-stat">
-                <span className="funnel-num" style={{ fontSize: 15, color: 'var(--text-primary)' }}>27</span>
-                <span className="funnel-label">MATCHED</span>
-              </div>
-              <div className="funnel-stat" style={{ background: 'var(--accent-cyan-dim)', borderRadius: 3 }}>
-                <span className="funnel-num" style={{ fontSize: 15, color: 'var(--accent-cyan)' }}>7</span>
-                <span className="funnel-label" style={{ color: 'var(--accent-cyan)' }}>CANDIDATES</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 14, fontWeight: 800, color: '#fff', fontFamily: 'JetBrains Mono' }}>{vessel.name}</div>
+                <div style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'JetBrains Mono', marginTop: 2 }}>
+                  IMO: {vessel.imo} &nbsp; MMSI: {vessel.mmsi}
+                </div>
+                <div style={{ fontSize: 9, color: 'var(--text-secondary)', fontFamily: 'JetBrains Mono', marginTop: 2 }}>
+                  Type: {vessel.type} &nbsp; Flag: {vessel.flag}
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Candidate list */}
-          <div style={{ padding: '12px', borderBottom: '1px solid var(--border-primary)', flex: 1 }}>
-            <div style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'JetBrains Mono', letterSpacing: '0.1em', marginBottom: 8, display: 'flex', justifyContent: 'space-between' }}>
-              <span>FILTERED CANDIDATES (TOP 3)</span>
-              <span>RANKED BY KINEMATICS</span>
+            {/* Detail Tabs */}
+            <div style={{ display: 'flex', gap: 2, marginBottom: 10 }}>
+              {['Overview', 'Trajectory', 'Behavior', 'AIS Gaps', 'Events'].map(t => (
+                <button
+                  key={t}
+                  onClick={() => setVesselDetailTab(t)}
+                  style={{
+                    padding: '3px 8px', fontSize: 8, fontFamily: 'JetBrains Mono', fontWeight: vesselDetailTab === t ? 700 : 500,
+                    color: vesselDetailTab === t ? 'var(--accent-cyan)' : 'var(--text-muted)',
+                    background: vesselDetailTab === t ? 'var(--accent-cyan-dim)' : 'transparent',
+                    border: 'none', borderBottom: vesselDetailTab === t ? '2px solid var(--accent-cyan)' : '2px solid transparent',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {t}
+                </button>
+              ))}
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {candidates.map((c) => {
-                const isSelected = selectedCandidate.id === c.id
-                return (
-                  <div
-                    key={c.id}
-                    onClick={() => setSelectedCandidate(c)}
-                    style={{
-                      padding: '10px',
-                      background: isSelected ? 'var(--bg-card-hover)' : 'var(--bg-card)',
-                      border: `1px solid ${isSelected ? 'var(--accent-cyan)' : 'var(--border-primary)'}`,
-                      borderRadius: 4,
-                      cursor: 'pointer',
-                      transition: 'all 0.2s'
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <div>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: isSelected ? 'var(--accent-cyan)' : 'var(--text-primary)', fontFamily: 'JetBrains Mono' }}>
-                          #{c.id} {c.name}
-                        </div>
-                        <div style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'JetBrains Mono', marginTop: 2 }}>
-                          IMO {c.imo} · {c.type}
-                        </div>
-                      </div>
-                      <span className={c.priority > 80 ? 'priority-high' : 'priority-medium'}>
-                        PRIORITY: {c.priority}
-                      </span>
-                    </div>
-
-                    <div className="divider" style={{ margin: '6px 0' }} />
-
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', fontSize: 9, fontFamily: 'JetBrains Mono', color: 'var(--text-muted)' }}>
-                      <div>SOG / COG: <span style={{ color: 'var(--text-primary)' }}>{c.sog} / {c.cog}</span></div>
-                      <div>INTERCEPT: <span style={{ color: 'var(--accent-cyan)' }}>{c.interceptTime}</span></div>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-
-          {/* Dossier for selected candidate */}
-          <div style={{ padding: '12px', background: 'var(--bg-card)' }}>
-            <div style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'JetBrains Mono', letterSpacing: '0.1em', marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span>CORRELATED TARGET DOSSIER</span>
-              <span className="tag-cyan" style={{ fontSize: 8 }}>SELECTED #{selectedCandidate.id}</span>
-            </div>
-
+            {/* Vessel Details */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 10, fontFamily: 'JetBrains Mono' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: 'var(--text-muted)' }}>Distance from source</span>
-                <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{selectedCandidate.distance}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: 'var(--text-muted)' }}>Time alignment</span>
-                <span style={{ color: 'var(--accent-green)', fontWeight: 600 }}>{selectedCandidate.timeAlign}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: 'var(--text-muted)' }}>Trajectory match</span>
-                <span style={{ color: 'var(--accent-cyan)', fontWeight: 600 }}>{selectedCandidate.trajMatch}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: 'var(--text-muted)' }}>Behaviour anomaly</span>
-                <span style={{ color: 'var(--accent-amber)', fontWeight: 600 }}>{selectedCandidate.anomaly}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: 'var(--text-muted)' }}>AIS gap</span>
-                <span style={{ color: 'var(--accent-red)', fontWeight: 600 }}>{selectedCandidate.aisGap}</span>
-              </div>
+              {[
+                { label: 'Last Known Position', value: vessel.lastPosition },
+                { label: 'Speed', value: vessel.speed },
+                { label: 'Course', value: vessel.course },
+                { label: 'Last AIS Signal', value: vessel.lastSignal },
+              ].map((f, i) => (
+                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px dashed var(--border-primary)', paddingBottom: 4 }}>
+                  <span style={{ color: 'var(--text-muted)' }}>{f.label}</span>
+                  <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{f.value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Anomaly Analysis Card */}
+          <div className="glass-card" style={{ padding: '14px', flex: 1 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, fontFamily: 'JetBrains Mono', color: '#fff', marginBottom: 10 }}>
+              ANOMALY ANALYSIS
+            </div>
+            <div style={{ fontSize: 9, fontFamily: 'JetBrains Mono', display: 'flex', gap: 12, marginBottom: 10, color: 'var(--text-muted)' }}>
+              <span>● <span style={{ color: 'var(--accent-green)' }}>Speed (kts)</span></span>
+              <span>● <span style={{ color: 'var(--accent-amber)' }}>Course (°)</span></span>
+              <span>● <span style={{ color: 'var(--accent-red)' }}>Anomaly</span></span>
+            </div>
+
+            {/* Simple Chart Visualization */}
+            <div style={{
+              height: 100, background: 'var(--bg-primary)', border: '1px solid var(--border-primary)',
+              borderRadius: 4, padding: '8px', position: 'relative', overflow: 'hidden'
+            }}>
+              {/* Grid Lines */}
+              {[0, 1, 2, 3].map(i => (
+                <div key={i} style={{
+                  position: 'absolute', left: 0, right: 0,
+                  top: `${25 * i}%`, height: 1,
+                  background: 'var(--border-primary)', opacity: 0.5
+                }} />
+              ))}
+              {/* Speed Line (Green) */}
+              <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
+                <polyline
+                  points="10,60 50,55 90,58 130,70 170,42 210,45 250,80 290,75"
+                  fill="none" stroke="var(--accent-green)" strokeWidth="1.5"
+                />
+                {/* Anomaly Highlight Region */}
+                <rect x="160" y="10" width="50" height="80" fill="rgba(255,51,85,0.1)" stroke="var(--accent-red)" strokeWidth="0.5" strokeDasharray="3,3" rx="3" />
+                <text x="165" y="25" fill="var(--accent-red)" fontSize="7" fontFamily="JetBrains Mono">Speed Drop + Loitering</text>
+              </svg>
             </div>
           </div>
         </div>
