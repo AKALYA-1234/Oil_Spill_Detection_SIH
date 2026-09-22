@@ -1,0 +1,12 @@
+C:\Users\JHANANISHRI\anaconda3\envs\personal\lib\site-packages\requests\__init__.py:113: RequestsDependencyWarning: urllib3 (2.5.0) or chardet (7.0.1)/charset_normalizer (3.4.4) doesn't match a supported version!
+  warnings.warn(
+Traceback (most recent call last):
+  File "D:\AI WORKSHOP\Hackathon\SIH\OIL_SPILL_DETECTION\AIS-ANAMOLY-DETECTION\test.py", line 118, in <module>
+    process_csv_and_download_data(input_csv, output_csv)
+  File "D:\AI WORKSHOP\Hackathon\SIH\OIL_SPILL_DETECTION\AIS-ANAMOLY-DETECTION\test.py", line 88, in process_csv_and_download_data
+    search_result = search_products(access_token, lat, lon, start_date_str, end_date_str, product_type="IW_GRDH_1S")
+  File "D:\AI WORKSHOP\Hackathon\SIH\OIL_SPILL_DETECTION\AIS-ANAMOLY-DETECTION\test.py", line 40, in search_products
+    response.raise_for_status()
+  File "C:\Users\JHANANISHRI\anaconda3\envs\personal\lib\site-packages\requests\models.py", line 1026, in raise_for_status
+    raise HTTPError(http_error_msg, response=self)
+requests.exceptions.HTTPError: 400 Client Error: Bad Request for url: https://catalogue.dataspace.copernicus.eu/odata/v1/Products?$filter=Collection/Name%20eq%20'SENTINEL-1'%20and%20OData.CSC.Intersects(area=geography'SRID=4326;POINT(-94.57852%2028.47842)')%20and%20ContentDate/Start%20ge%202022-03-31T23:42:26Z%20and%20ContentDate/Start%20le%202022-04-20T23:42:26Z%20and%20Attributes/OData.CSC.StringAttribute/any(att:att/Name%20eq%20'productType'%20and%20att/OData.CSC.StringAttribute/Value%20eq%20'IW_GRDH_1S')%20and%20Attributes/OData.CSC.StringAttribute/any(att:att/Name%20eq%20'polarisationChannels'%20and%20att/OData.CSC.StringAttribute/Value%20eq%20'VV&VH')&$top=10&$orderby=ContentDate/Start%20asc
